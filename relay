@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+import sys
+import time
+from usb_relay import USBRelay
+
+CYCLE_DELAY = 5  # seconds
+
+def usage():
+    print("Usage: relay PORT_ID COMMAND")
+    print("  PORT_ID : 0=all ports, 1-4=port number")
+    print("  COMMAND : on | off | cycle | status")
+    sys.exit(1)
+
+def main():
+    if len(sys.argv) not in (2, 3):
+        usage()
+
+    try:
+        port_id = int(sys.argv[1])
+    except ValueError:
+        print(f"Error: PORT_ID must be an integer, got '{sys.argv[1]}'")
+        usage()
+
+    command = sys.argv[2].lower() if len(sys.argv) == 3 else 'status'
+
+    if port_id not in range(0, 5):
+        print(f"Error: PORT_ID must be 0–4, got {port_id}")
+        usage()
+
+    if command not in ('on', 'off', 'cycle', 'status'):
+        print(f"Error: unknown command '{command}', expected on/off/cycle/status")
+        usage()
+
+    relay = USBRelay(port='/dev/ttyACM0')
+    try:
+        if port_id == 0:
+            if command == 'on':
+                relay.all_on()
+                print("All ports: ON")
+            elif command == 'off':
+                relay.all_off()
+                print("All ports: OFF")
+            elif command == 'cycle':
+                relay.all_off()
+                time.sleep(CYCLE_DELAY)
+                relay.all_on()
+                print("All ports: power cycled")
+            elif command == 'status':
+                for i in range(1, 5):
+                    state = relay.get_status(i)
+                    print(f"Port {i}: {'ON' if state else 'OFF'}")
+        else:
+            if command == 'on':
+                relay.on(port_id)
+                print(f"Port {port_id}: ON")
+            elif command == 'off':
+                relay.off(port_id)
+                print(f"Port {port_id}: OFF")
+            elif command == 'cycle':
+                relay.power_cycle(port_id, delay=CYCLE_DELAY)
+                print(f"Port {port_id}: power cycled")
+            elif command == 'status':
+                state = relay.get_status(port_id)
+                print(f"Port {port_id}: {'ON' if state else 'OFF'}")
+    finally:
+        relay.close()
+
+if __name__ == '__main__':
+    main()
